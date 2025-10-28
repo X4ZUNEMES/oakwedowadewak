@@ -1,5 +1,5 @@
 -- ===========================
--- AUTO FISH BACKEND dengan ReplicateTextEffect Trigger + Auto Reset on Stuck + Fast Cast Optimized
+-- AUTO FISH BACKEND dengan ReplicateTextEffect Trigger + Auto Reset on Stuck
 -- File: autofishv5_texteffect.lua
 -- ===========================
 
@@ -70,8 +70,8 @@ local FISHING_CONFIGS = {
         chargeTime = 1.0,
         waitBetweenCast = 0,
         rodSlot = 1,
-        completionDelay = 1.0,  -- slightly reduced for faster reaction
-        waitAfterFish = 1.0
+        completionDelay = 1.3,  -- Delay setelah text effect muncul
+        waitAfterFish = 1.3     -- Delay setelah ikan tertangkap
     },
     ["Slow"] = {
         chargeTime = 1.0,
@@ -289,7 +289,7 @@ function AutoFishFeature:SetupTextEffectListener()
 end
 
 -- ===========================
--- Fishing sequence (Fast Cast Optimized)
+-- Fishing sequence
 -- ===========================
 
 function AutoFishFeature:FishingLoop()
@@ -335,28 +335,20 @@ end
 function AutoFishFeature:ExecuteFishingSequence()
     if fishCaughtFlag then return false end
     local config = FISHING_CONFIGS[currentMode]
-
-    -- Equip rod
+    
     if not self:EquipRod(config.rodSlot) then return false end
-    task.wait(0.02)  -- minimal wait for server
-
+    task.wait(0.1)
     if fishCaughtFlag then return false end
-
-    -- Charge rod
+    
     if not self:ChargeRod(config.chargeTime) then return false end
     if fishCaughtFlag then return false end
-
-    -- Cast rod immediately
+    
     if not self:CastRod() then return false end
     if fishCaughtFlag then return false end
-
-    -- Prepare for text effect completion
+    
     textEffectReceived = false
     waitingForCompletion = true
-
-    -- Update last cast time for stuck detection
-    lastCastTime = tick()
-
+    
     return true
 end
 
