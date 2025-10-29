@@ -67,11 +67,11 @@ local STUCK_TIMEOUT = 5.0
 -- Rod-specific configs
 local FISHING_CONFIGS = {
     ["Fast"] = {
-        chargeTime = 0.5,
+        chargeTime = 1.0,
         waitBetweenCast = 0,
         rodSlot = 1,
-        completionDelay = 1  -- Delay setelah text effect muncul
-        waitAfterFish = 1    -- Delay setelah ikan tertangkap
+        completionDelay = 1.3,  -- Delay setelah text effect muncul
+        waitAfterFish = 1.3     -- Delay setelah ikan tertangkap
     },
     ["Slow"] = {
         chargeTime = 1.0,
