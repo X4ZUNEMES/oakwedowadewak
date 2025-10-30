@@ -413,7 +413,7 @@ local function buildEmbed(info)
         description = string.format("**Player:** %s", hide(LocalPlayer.Name)),
         color = embedColor,
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-        footer = {text = "Noctis | Fish-It Notifier"},
+        footer = {text = "Nemesis | Fish-It Notifier"},
         fields = {
             {name = label(EMOJI.fish, "Fish Name"), value = box(info.name or "Unknown"), inline = false},
             {name = label(EMOJI.weight, "Weight"), value = box(formatWeight(info.weight)), inline = true},
@@ -456,7 +456,7 @@ local function processQueue()
         if not item then continue end
         
         local success, err = sendWebhook({
-            username = "Noctis Notifier",
+            username = "Nemesis Notifier",
             embeds = {item.embed}
         })
         
@@ -667,7 +667,7 @@ end
 function FishWebhookV3:TestWebhook(msg)
     if state.webhookUrl == "" then return false end
     return sendWebhook({
-        username = "Noctis Notifier",
+        username = "Nemesis Notifier",
         content = msg or "🟠 Test from Fish-It v3 (JSON)"
     })
 end
