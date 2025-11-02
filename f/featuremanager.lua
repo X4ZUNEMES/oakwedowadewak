@@ -20,6 +20,7 @@ local FEATURE_URLS = {
     AutoBuyBait        = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autobuybait.lua",
     AutoBuyRod         = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autobuyrod.lua",
     AutoTeleportEvent  = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoteleportevent.lua",
+    AutoTeleportPlayer = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoteleportplayer.lua",
     AutoGearOxyRadar   = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autogearoxyradar.lua",
     AntiAfk            = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/antiafk.lua",
     AutoEnchantRod     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoenchantrod.lua",
