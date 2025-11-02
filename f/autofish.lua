@@ -1,6 +1,6 @@
 -- ===========================
--- AUTO FISH BACKEND dengan ReplicateTextEffect Trigger + Auto Reset on Stuck
--- File: autofishv5_texteffect.lua
+-- AUTO FISH FEATURE - SIMPLE TEXT EFFECT TRIGGER
+-- File: autofishv4_fixed.lua
 -- ===========================
 
 local AutoFishFeature = {}
@@ -21,7 +21,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Network setup
 local NetPath = nil
-local EquipTool, ChargeFishingRod, RequestFishing, FishingCompleted, FishObtainedNotification, ReplicateTextEffect
+local EquipTool, ChargeFishingRod, RequestFishing, FishingCompleted, FishObtainedNotification
 
 local function initializeRemotes()
     local success = pcall(function()
@@ -35,7 +35,11 @@ local function initializeRemotes()
         RequestFishing = NetPath:WaitForChild("RF/RequestFishingMinigameStarted", 5)
         FishingCompleted = NetPath:WaitForChild("RE/FishingCompleted", 5)
         FishObtainedNotification = NetPath:WaitForChild("RE/ObtainedNewFishNotification", 5)
-        ReplicateTextEffect = NetPath:WaitForChild("RE/ReplicateTextEffect", 5)
+        
+        local ReplicateTextEffect = NetPath:FindFirstChild("RE/ReplicateTextEffect")
+        if ReplicateTextEffect then
+            _G.ReplicateTextEffect = ReplicateTextEffect
+        end
         
         return true
     end)
@@ -59,106 +63,46 @@ local currentCastCoroutine = nil
 local textEffectReceived = false
 local fishCaughtFlag = false
 local waitingForCompletion = false
-local lastCastTime = 0 -- for stuck detection
-
--- Stuck detection timeout (seconds)
-local STUCK_TIMEOUT = 5.0
 
 -- Rod-specific configs
 local FISHING_CONFIGS = {
     ["Fast"] = {
         chargeTime = 1.0,
-        waitBetweenCast = 0,
+        waitBetween = 0,
         rodSlot = 1,
-        completionDelay = 1.3,  -- Delay setelah text effect muncul
-        waitAfterFish = 1.3     -- Delay setelah ikan tertangkap
+        completionDelay = 1.3  -- Delay setelah text effect (seconds)
     },
     ["Slow"] = {
         chargeTime = 1.0,
-        waitBetweenCast = 1,
+        waitBetween = 1,
         rodSlot = 1,
-        completionDelay = 2.0,
-        waitAfterFish = 2.0
+        completionDelay = 2.0  -- Delay setelah text effect (seconds)
     }
 }
 
--- ===========================
--- PUBLIC API METHODS
--- ===========================
-
-function AutoFishFeature:SetCompletionDelay(mode, delaySeconds)
-    if not FISHING_CONFIGS[mode] then
-        logger:warn("Invalid mode:", mode)
-        return false
-    end
-    if type(delaySeconds) ~= "number" or delaySeconds < 0 then
-        logger:warn("Invalid delay value:", delaySeconds)
-        return false
-    end
-    FISHING_CONFIGS[mode].completionDelay = delaySeconds
-    logger:info(mode, "completion delay set to:", delaySeconds, "seconds")
-    return true
-end
-
-function AutoFishFeature:SetWaitAfterFish(mode, delaySeconds)
-    if not FISHING_CONFIGS[mode] then
-        logger:warn("Invalid mode:", mode)
-        return false
-    end
-    if type(delaySeconds) ~= "number" or delaySeconds < 0 then
-        logger:warn("Invalid delay value:", delaySeconds)
-        return false
-    end
-    FISHING_CONFIGS[mode].waitAfterFish = delaySeconds
-    logger:info(mode, "wait after fish set to:", delaySeconds, "seconds")
-    return true
-end
-
-function AutoFishFeature:SetDelays(mode, completionDelay, waitAfterFish)
-    if not FISHING_CONFIGS[mode] then
-        logger:warn("Invalid mode:", mode)
-        return false
-    end
-    local success = true
-    if completionDelay then
-        success = success and self:SetCompletionDelay(mode, completionDelay)
-    end
-    if waitAfterFish then
-        success = success and self:SetWaitAfterFish(mode, waitAfterFish)
-    end
-    return success
-end
-
-function AutoFishFeature:GetDelays(mode)
-    local config = FISHING_CONFIGS[mode or currentMode]
-    if not config then return nil end
-    return {
-        completionDelay = config.completionDelay,
-        waitAfterFish = config.waitAfterFish
-    }
-end
-
--- ===========================
--- CORE METHODS
--- ===========================
-
+-- Initialize
 function AutoFishFeature:Init(guiControls)
     controls = guiControls or {}
     remotesInitialized = initializeRemotes()
+    
     if not remotesInitialized then
         logger:warn("Failed to initialize remotes")
         return false
     end
-    logger:info("Initialized - ReplicateTextEffect trigger ready")
+    
+    logger:info("Initialized - Simple text effect trigger")
     return true
 end
 
+-- Start fishing
 function AutoFishFeature:Start(config)
     if isRunning then return end
+    
     if not remotesInitialized then
         logger:warn("Cannot start - remotes not initialized")
         return
     end
+    
     isRunning = true
     currentMode = config.mode or "Fast"
     fishingInProgress = false
@@ -166,11 +110,8 @@ function AutoFishFeature:Start(config)
     fishCaughtFlag = false
     textEffectReceived = false
     waitingForCompletion = false
-    lastCastTime = 0
     
     logger:info("Started - Mode:", currentMode)
-    logger:info("  - Completion delay:", FISHING_CONFIGS[currentMode].completionDelay, "seconds")
-    logger:info("  - Wait after fish:", FISHING_CONFIGS[currentMode].waitAfterFish, "seconds")
     
     self:SetupFishObtainedListener()
     self:SetupTextEffectListener()
@@ -181,8 +122,10 @@ function AutoFishFeature:Start(config)
     end)
 end
 
+-- Stop fishing
 function AutoFishFeature:Stop()
     if not isRunning then return end
+    
     isRunning = false
     fishingInProgress = false
     fishCaughtFlag = false
@@ -190,7 +133,9 @@ function AutoFishFeature:Stop()
     waitingForCompletion = false
     
     if currentCastCoroutine then
-        pcall(function() coroutine.close(currentCastCoroutine) end)
+        pcall(function()
+            coroutine.close(currentCastCoroutine)
+        end)
         currentCastCoroutine = nil
     end
     
@@ -212,6 +157,7 @@ function AutoFishFeature:Stop()
     logger:info("Stopped")
 end
 
+-- Setup fish obtained notification listener
 function AutoFishFeature:SetupFishObtainedListener()
     if not FishObtainedNotification then
         logger:warn("FishObtainedNotification not available")
@@ -224,12 +170,12 @@ function AutoFishFeature:SetupFishObtainedListener()
     
     fishObtainedConnection = FishObtainedNotification.OnClientEvent:Connect(function(...)
         if isRunning then
-            logger:info("🐟 Fish caught! Stopping current cycle...")
+            logger:info("Fish caught! Stopping current cycle...")
             fishCaughtFlag = true
             waitingForCompletion = false
             fishingInProgress = false
-            textEffectReceived = false
             
+            -- Stop current cast coroutine if running
             if currentCastCoroutine then
                 pcall(function()
                     coroutine.close(currentCastCoroutine)
@@ -237,15 +183,16 @@ function AutoFishFeature:SetupFishObtainedListener()
                 currentCastCoroutine = nil
             end
             
-            local config = FISHING_CONFIGS[currentMode]
             spawn(function()
-                task.wait(config.waitAfterFish)
+                task.wait(1.3)
+                
                 if not isRunning then return end
+                
                 fishCaughtFlag = false
                 textEffectReceived = false
                 waitingForCompletion = false
                 fishingInProgress = false
-                logger:info("✨ Starting next cycle after cooldown...")
+                logger:info("Starting next cycle after cooldown...")
             end)
         end
     end)
@@ -253,7 +200,9 @@ function AutoFishFeature:SetupFishObtainedListener()
     logger:info("Fish obtained listener ready")
 end
 
+-- Setup text effect listener
 function AutoFishFeature:SetupTextEffectListener()
+    local ReplicateTextEffect = _G.ReplicateTextEffect
     if not ReplicateTextEffect then
         logger:warn("ReplicateTextEffect not available")
         return
@@ -265,22 +214,26 @@ function AutoFishFeature:SetupTextEffectListener()
     
     textEffectConnection = ReplicateTextEffect.OnClientEvent:Connect(function(data)
         if not isRunning or not waitingForCompletion then return end
+        
         if not data or not data.TextData then return end
         if not LocalPlayer.Character or not LocalPlayer.Character.Head then return end
         if data.TextData.AttachTo ~= LocalPlayer.Character.Head then return end
         
-        logger:info("📝 Text effect detected!")
+        logger:info("Text effect detected!")
         textEffectReceived = true
         
+        -- Trigger completion after delay
         local config = FISHING_CONFIGS[currentMode]
         spawn(function()
-            logger:info("⏳ Waiting", config.completionDelay, "seconds before firing completion...")
+            logger:info("Waiting", config.completionDelay, "seconds before firing completion...")
             task.wait(config.completionDelay)
+            
             if not isRunning or fishCaughtFlag then
-                logger:info("❌ Cancelled - fish already caught or stopped")
+                logger:info("Cancelled - fish already caught or stopped")
                 return
             end
-            logger:info("🎣 Firing completion NOW!")
+            
+            logger:info("Firing completion NOW!")
             self:FireCompletion()
         end)
     end)
@@ -288,111 +241,122 @@ function AutoFishFeature:SetupTextEffectListener()
     logger:info("Text effect listener ready")
 end
 
--- ===========================
--- Fishing sequence
--- ===========================
-
+-- Main fishing loop
 function AutoFishFeature:FishingLoop()
-    -- Stuck detection
-    if fishingInProgress or waitingForCompletion or fishCaughtFlag then
-        if tick() - lastCastTime >= STUCK_TIMEOUT then
-            logger:warn("⚠️ Stuck detected! Resetting fishing cycle...")
-            fishingInProgress = false
-            waitingForCompletion = false
-            textEffectReceived = false
-            if currentCastCoroutine then
-                pcall(function() coroutine.close(currentCastCoroutine) end)
-                currentCastCoroutine = nil
-            end
-            lastCastTime = tick()
-        else
-            return
-        end
-    end
-
+    if fishingInProgress or waitingForCompletion or fishCaughtFlag then return end
+    
     local currentTime = tick()
     local config = FISHING_CONFIGS[currentMode]
-    if currentTime - lastFishTime < config.waitBetweenCast then
+    
+    if currentTime - lastFishTime < config.waitBetween then
         return
     end
     
     fishingInProgress = true
     lastFishTime = currentTime
-    lastCastTime = tick()
     
     currentCastCoroutine = coroutine.create(function()
         local success = self:ExecuteFishingSequence()
+        
         if not fishCaughtFlag then
             fishingInProgress = false
         end
+        
         if success then
-            logger:info("⏰ Waiting for text effect trigger...")
+            logger:info("Waiting for text effect...")
         end
     end)
+    
     coroutine.resume(currentCastCoroutine)
 end
 
+-- Execute fishing sequence
 function AutoFishFeature:ExecuteFishingSequence()
     if fishCaughtFlag then return false end
+    
     local config = FISHING_CONFIGS[currentMode]
     
-    if not self:EquipRod(config.rodSlot) then return false end
+    if not self:EquipRod(config.rodSlot) then
+        return false
+    end
+    
     task.wait(0.1)
     if fishCaughtFlag then return false end
+
+    if not self:ChargeRod(config.chargeTime) then
+        return false
+    end
     
-    if not self:ChargeRod(config.chargeTime) then return false end
     if fishCaughtFlag then return false end
     
-    if not self:CastRod() then return false end
+    if not self:CastRod() then
+        return false
+    end
+
     if fishCaughtFlag then return false end
     
+    -- Mark as waiting for text effect
     textEffectReceived = false
     waitingForCompletion = true
     
     return true
 end
 
+-- Equip rod
 function AutoFishFeature:EquipRod(slot)
     if not EquipTool then return false end
-    local success = pcall(function() EquipTool:FireServer(slot) end)
+    
+    local success = pcall(function()
+        EquipTool:FireServer(slot)
+    end)
+    
     return success
 end
 
+-- Charge rod
 function AutoFishFeature:ChargeRod(chargeTime)
     if not ChargeFishingRod then return false end
+    
     local success = pcall(function()
         local serverTime = workspace:GetServerTimeNow()
         return ChargeFishingRod:InvokeServer(nil, nil, nil, serverTime)
     end)
+    
     return success
 end
 
+-- Cast rod
 function AutoFishFeature:CastRod()
     if not RequestFishing then return false end
+    
     local success = pcall(function()
         local x = -1.2331848144531
         local z = 0.99277655860847
         local serverTime = workspace:GetServerTimeNow()
         return RequestFishing:InvokeServer(x, z, serverTime)
     end)
+    
     return success
 end
 
+-- Fire FishingCompleted (only once!)
 function AutoFishFeature:FireCompletion()
     if not FishingCompleted then return false end
-    local success = pcall(function() FishingCompleted:FireServer() end)
+    
+    local success = pcall(function()
+        FishingCompleted:FireServer()
+    end)
+    
     if success then
-        logger:info("✅ FishingCompleted fired successfully!")
+        logger:info("FishingCompleted fired successfully!")
     else
-        logger:warn("⚠️ Failed to fire FishingCompleted")
+        logger:warn("Failed to fire FishingCompleted")
     end
+    
     return success
 end
 
--- ===========================
--- Utility
--- ===========================
-
+-- Get status
 function AutoFishFeature:GetStatus()
     return {
         running = isRunning,
@@ -408,25 +372,31 @@ function AutoFishFeature:GetStatus()
     }
 end
 
+-- Update mode
 function AutoFishFeature:SetMode(mode)
     if FISHING_CONFIGS[mode] then
         currentMode = mode
         logger:info("Mode changed to:", mode)
         logger:info("  - Completion delay:", FISHING_CONFIGS[mode].completionDelay, "seconds")
-        logger:info("  - Wait after fish:", FISHING_CONFIGS[mode].waitAfterFish, "seconds")
         return true
     end
     return false
 end
 
-function AutoFishFeature:GetConfig(mode)
-    return FISHING_CONFIGS[mode or currentMode]
+-- Get notification listener info for debugging
+function AutoFishFeature:GetNotificationInfo()
+    return {
+        hasNotificationRemote = FishObtainedNotification ~= nil,
+        hasTextEffectRemote = _G.ReplicateTextEffect ~= nil,
+        fishListenerConnected = fishObtainedConnection ~= nil,
+        textEffectListenerConnected = textEffectConnection ~= nil,
+        fishCaughtFlag = fishCaughtFlag,
+        textEffectReceived = textEffectReceived,
+        waitingForCompletion = waitingForCompletion
+    }
 end
 
-function AutoFishFeature:GetAllConfigs()
-    return FISHING_CONFIGS
-end
-
+-- Cleanup
 function AutoFishFeature:Cleanup()
     logger:info("Cleaning up...")
     self:Stop()
