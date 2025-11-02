@@ -27,8 +27,8 @@ local FEATURE_URLS = {
     AutoEnchantRod     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoenchantrod.lua",
     AutoEnchantRod2    = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoenchantrod2.lua",
     AutoFavorite       = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofavoritefish.lua",
-    --AutoFavoriteFishV2 = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofavoritefishv2.lua",
-    --AutoFavoriteFishV3 = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofavoritefishv3.lua",
+    AutoFavoriteFishV2 = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofavoritefishv2.lua",
+    AutoFavoriteFishV3 = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofavoritefishv3.lua",
     UnfavoriteAllFish  = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/unfavoritefish.lua",
     AutoTeleportPlayer = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoteleportplayer.lua",
     BoostFPS           = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/boostfps.lua",
@@ -40,7 +40,7 @@ local FEATURE_URLS = {
     PlayerEsp          = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/playeresp.lua",
     -- AutoReconnect      = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoreconnect.lua",
     -- AutoReexec         = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autoreexec.lua",
-    -- AutoFixFishing     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofixfishing.lua",
+    AutoFixFishing     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofixfishing.lua",
     PlayerModif        = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/playermodif.lua",
     AutoSubmitSecret   = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autosubmitsecret.lua",
     -- QuestGhostfinn     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/questghostfinn.lua",
@@ -118,13 +118,11 @@ function FeatureManager:InitializeAllFeatures(notifyLib, logger)
     -- }
     
         local loadOrder = {
-        "AntiAfk", "SavePosition", "PositionManager", "AutoReexec", "BoostFPS", 
+        "AntiAfk", "SavePosition", "PositionManager", "BoostFPS", 
         "AutoFish", "AutoFishV2", "AutoFishV3", "AutoSellFish", "AutoTeleportIsland", "AutoTeleportPlayer", 
-        "AutoTeleportEvent", "AutoEnchantRod", "AutoFavorite", --"AutoFavoriteFishV2", "AutoFavoriteFishV3",
+        "AutoTeleportEvent", "AutoEnchantRod", "AutoFavorite",
         "AutoSendTrade", "AutoAcceptTrade", "FishWebhook", "AutoBuyWeather", 
-        "AutoBuyBait", "AutoBuyRod", "AutoGearOxyRadar", "CopyJoinServer", 
-        "AutoReconnect", "PlayerEsp", "AutoFixFishing", "UnfavoriteAllFish", "PlayerModif", "AutoSubmitSecret", "AutoEnchantRod2", "QuestGhostfinn",
-        "QuestElemental", "Balatant", "BalatantV2", "AutoBuyMerchant", "AutoTotem"
+        "AutoBuyBait", "AutoBuyRod", "AutoGearOxyRadar", "CopyJoinServer", "PlayerEsp", "AutoFixFishing", "UnfavoriteAllFish", "PlayerModif", "AutoSubmitSecret", "AutoEnchantRod2", "AutoBuyMerchant"
     }
     local successCount = 0
     
