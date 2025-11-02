@@ -15,6 +15,7 @@ local FEATURE_URLS = {
     AutoFish           = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofish.lua",
     AutoFishV2         = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofishv2.lua",
     AutoFishV3         = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autofishv3.lua",
+    AutoSellFish       = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autosellfish.lua",
     FishWebhook        = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/fishwebhook.lua",
     AutoBuyWeather     = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autobuyweather.lua",
     AutoBuyBait        = "https://raw.githubusercontent.com/X4ZUNEMES/oakwedowadewak/refs/heads/main/f/autobuybait.lua",
