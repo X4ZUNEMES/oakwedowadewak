@@ -5,7 +5,7 @@
 -- Zero freeze on fish catch
 -- Async thumbnail loading (non-blocking)
 -- Fixed: Thumbnail batch loading & Event connection
--- ===========================
+-- ========================
 
 local FishWebhookV3 = {}
 FishWebhookV3.__index = FishWebhookV3
@@ -54,7 +54,6 @@ local state = {
     fishCache = {},
     tierCache = {},
     thumbnailCache = {},
-    fishPriceMapping = {}, -- <- Added fish price mapping
     
     -- Queue & dedup
     sendQueue = {},
@@ -341,9 +340,6 @@ local function loadTiers()
     return tierData
 end
 
--- ===========================
--- LOAD FISH & PRICES
--- ===========================
 local function loadFish()
     logger:info("Loading fish data...")
     
@@ -371,7 +367,6 @@ local function loadFish()
                 if itemData.Type == "Fishes" and itemData.Id then
                     local fishId = toIdStr(itemData.Id)
                     if fishId then
-                        -- Store fish info
                         fishData[fishId] = {
                             id = fishId,
                             name = itemData.Name,
@@ -380,15 +375,6 @@ local function loadFish()
                             description = itemData.Description,
                             chance = type(data.Probability) == "table" and data.Probability.Chance or nil
                         }
-                        -- Store fish price in mapping
-                        if data.SellPrice then
-                            state.fishPriceMapping[fishId] = data.SellPrice
-                        elseif itemData.SellPrice then
-                            state.fishPriceMapping[fishId] = itemData.SellPrice
-                        else
-                            state.fishPriceMapping[fishId] = 0
-                        end
-                        
                         count = count + 1
                     end
                 end
@@ -398,13 +384,6 @@ local function loadFish()
     
     logger:info("Loaded " .. count .. " fish from " .. itemsRoot:GetFullName())
     return fishData
-end
-
--- ===========================
--- FISH PRICE RETRIEVAL
--- ===========================
-function FishWebhookV3:GetFishPrice(fishId)
-    return state.fishPriceMapping[toIdStr(fishId)] or 0
 end
 
 -- ===========================
@@ -534,7 +513,6 @@ local function buildEmbed(info)
             {name = label(EMOJI.weight, "Weight"), value = box(formatWeight(info.weight)), inline = true},
             {name = label(EMOJI.chance, "Chance"), value = box(formatChance(info.chance)), inline = true},
             {name = label(EMOJI.rarity, "Rarity"), value = box(getTierName(info.tier)), inline = true},
-            {name = "💰 Value", value = box("$" .. tostring(FishWebhookV3:GetFishPrice(info.id))), inline = true},
             {name = label(EMOJI.mutation, "Mutations"), value = box(formatVariant(info)), inline = false}
         }
     }
@@ -591,9 +569,6 @@ local function processQueue()
     end
 end
 
--- ===========================
--- QUEUE FISH
--- ===========================
 local function queueFish(info)
     if not shouldSendFish(info) then
         logger:info("Fish tier not selected: " .. (info.name or "Unknown"))
@@ -712,7 +687,7 @@ function FishWebhookV3:Init()
     state.tierCache = loadTiers()
     logger:info("Tiers loaded")
     
-    -- Load fish data + prices
+    -- Load fish data
     state.fishCache = loadFish()
     logger:info("Fish loaded")
     
@@ -835,7 +810,6 @@ function FishWebhookV3:Cleanup()
     state.thumbnailCache = {}
     state.sendQueue = {}
     state.dedupCache = {}
-    state.fishPriceMapping = {}
     
     logger:info("Cleanup complete")
 end
