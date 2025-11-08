@@ -1,7 +1,7 @@
-
-
-
-
+-- ===========================
+-- FISH WEBHOOK V3 (JSON DATA VERSION)
+-- Uses external JSON for fish data (no thumbnail fetching needed)
+-- ===========================
 
 local FishWebhookV3 = {}
 FishWebhookV3.__index = FishWebhookV3
@@ -20,23 +20,9 @@ local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 
-
-
-
-local Constants = nil
-pcall(function() Constants = require(ReplicatedStorage.Shared.Constants) end)
-
-local FishWatcher = nil
-pcall(function() 
-    local FishWatcherModule = loadstring(game:HttpGet("https://azr.kaelzsec.workers.dev/fish"))()
-    if FishWatcherModule then
-        FishWatcher = FishWatcherModule.getShared()
-    end
-end)
-
-
-
-
+-- ===========================
+-- CONFIG
+-- ===========================
 local CFG = {
     DEBUG = true,
     QUEUE_PROCESS_INTERVAL = 0.5,
@@ -48,37 +34,34 @@ local CFG = {
     TARGET_EVENT = "RE/ObtainedNewFishNotification",
     INIT_TIMEOUT = 30,
     
-    
+    -- JSON Data URL
     JSON_DATA_URL = "https://raw.githubusercontent.com/hailazra/GameData/refs/heads/main/FishIt/processed.json"
 }
 
-
-
-
+-- ===========================
+-- STATE
+-- ===========================
 local state = {
     running = false,
     webhookUrl = "",
     selectedTiers = {},
     
-    
+    -- Pre-loaded caches
     fishCache = {},
     tierCache = {},
     
-    
+    -- Queue & dedup
     sendQueue = {},
     dedupCache = {},
     
-    
+    -- Connections
     connections = {},
-    queueThread = nil,
-    
-    
-    fishWatcher = nil
+    queueThread = nil
 }
 
-
-
-
+-- ===========================
+-- UTILS
+-- ===========================
 local function log(...) 
     if CFG.DEBUG then 
         warn("[FishWebhook-v3-JSON]", ...) 
@@ -109,37 +92,9 @@ local function asSet(tbl)
     return set
 end
 
-
-
-
-local function getBackpackSize()
-    local current = 0
-    local max = 4500
-    
-    
-    if Constants and Constants.MaxInventorySize then
-        max = Constants.MaxInventorySize
-    end
-    
-    
-    if state.fishWatcher then
-        local total = state.fishWatcher._totalFish
-        if total then
-            current = total
-        end
-    end
-    
-    return current, max
-end
-
-local function formatBackpackSize()
-    local current, max = getBackpackSize()
-    return string.format("%d/%d", current, max)
-end
-
-
-
-
+-- ===========================
+-- HTTP
+-- ===========================
 local requestFn = (function()
     if syn and type(syn.request) == "function" then return syn.request end
     if http and type(http.request) == "function" then return http.request end
@@ -196,9 +151,9 @@ local function sendWebhook(payload)
     return true, nil
 end
 
-
-
-
+-- ===========================
+-- DATA LOADING (JSON VERSION)
+-- ===========================
 local function findPath(root, path)
     local cur = root
     for part in string.gmatch(path, "[^/]+") do
@@ -277,11 +232,11 @@ local function loadFishFromJSON()
     local fishData = {}
     local count = 0
     
-    
+    -- Handle array format: {"fish": [...]}
     local fishArray = jsonData.fish or jsonData
     
     if type(fishArray) == "table" then
-        
+        -- If it's an array
         if #fishArray > 0 then
             for _, fish in ipairs(fishArray) do
                 if fish.id then
@@ -289,17 +244,16 @@ local function loadFishFromJSON()
                         id = toIdStr(fish.id),
                         name = fish.name,
                         tier = fish.tier,
-                        icon = fish.icon,
-                        thumbnail = fish.icon,
+                        icon = fish.icon,  -- Direct CDN link!
+                        thumbnail = fish.icon,  -- Use icon as thumbnail (same URL)
                         description = fish.description,
-                        chance = fish.chance,
-                        sellPrice = fish.sellPrice
+                        chance = fish.chance
                     }
                     count = count + 1
                 end
             end
         else
-            
+            -- If it's an object with ID keys
             for fishId, fish in pairs(fishArray) do
                 if fish.id then
                     fishData[toIdStr(fish.id)] = {
@@ -309,8 +263,7 @@ local function loadFishFromJSON()
                         icon = fish.icon,
                         thumbnail = fish.icon,
                         description = fish.description,
-                        chance = fish.chance,
-                        sellPrice = fish.sellPrice
+                        chance = fish.chance
                     }
                     count = count + 1
                 end
@@ -322,9 +275,9 @@ local function loadFishFromJSON()
     return fishData
 end
 
-
-
-
+-- ===========================
+-- FORMATTING
+-- ===========================
 local function getTierName(tierId)
     if not tierId then return "Unknown" end
     
@@ -380,9 +333,9 @@ local function formatVariant(info)
     return #parts > 0 and table.concat(parts, " | ") or "None"
 end
 
-
-
-
+-- ===========================
+-- DEDUP
+-- ===========================
 local function createSig(info)
     return table.concat({
         tostring(info.id or "?"),
@@ -410,9 +363,9 @@ local function isDuplicate(sig)
     return false
 end
 
-
-
-
+-- ===========================
+-- FILTER
+-- ===========================
 local function shouldSendFish(info)
     if not next(state.selectedTiers) then return true end
     
@@ -422,37 +375,37 @@ local function shouldSendFish(info)
     return state.selectedTiers[tierName:lower()] == true
 end
 
-
-
-
+-- ===========================
+-- EMBED BUILDER
+-- ===========================
 local EMOJI = {
     fish = "<:emoji_1:1415617268511150130>",
     weight = "<:emoji_2:1415617300098449419>",
     chance = "<:emoji_3:1415617326316916787>",
     rarity = "<:emoji_4:1415617353898790993>",
-    mutation = "<:emoji_5:1415617377424511027>",
-    backpack = "<:backpack1:1434189034594373735>",
-    cent = "<:badgecent1:1434188937525465190>"
+    mutation = "<:emoji_5:1415617377424511027>"
 }
 
 local function getTierColor(tierId)
     local colors = {
-        [1] = 0xFFFFFF,
-        [2] = 0x90EE90,
-        [3] = 0x3498DB,
-        [4] = 0x9B59B6,
-        [5] = 0xFFD700,
-        [6] = 0xE74C3C,
-        [7] = 0x1ABC9C
+        [1] = 0xFFFFFF,  -- Common = Putih
+        [2] = 0x90EE90,  -- Uncommon = Ijo muda (Light Green)
+        [3] = 0x3498DB,  -- Rare = Biru
+        [4] = 0x9B59B6,  -- Epic = Ungu
+        [5] = 0xFFD700,  -- Legendary = Kuning gold
+        [6] = 0xE74C3C,  -- Mythic = Merah
+        [7] = 0x1ABC9C   -- Secret = Hijau tosca (Turquoise)
     }
-    return colors[tonumber(tierId)] or 0x030303
+    return colors[tonumber(tierId)] or 0x030303  -- Default hitam kalau tier ga dikenal
 end
+
 
 local function buildEmbed(info)
     local function label(e, t) return string.format("%s %s", e, t) end
     local function box(v) return string.format("```%s```", tostring(v):gsub("```", "‹``")) end
     local function hide(v) return string.format("||%s||", tostring(v)) end
     
+    -- Prioritas warna: Shiny tetap gold, selain itu pakai warna tier
     local embedColor = info.shiny and 0xFFD700 or getTierColor(info.tier)
     
     local embed = {
@@ -466,9 +419,7 @@ local function buildEmbed(info)
             {name = label(EMOJI.weight, "Weight"), value = box(formatWeight(info.weight)), inline = true},
             {name = label(EMOJI.chance, "Chance"), value = box(formatChance(info.chance)), inline = true},
             {name = label(EMOJI.rarity, "Rarity"), value = box(getTierName(info.tier)), inline = true},
-            {name = label(EMOJI.mutation, "Mutations"), value = box(formatVariant(info)), inline = false},
-            {name = label(EMOJI.cent, "Sell Price"), value = box(info.sellPrice or "Unknown"), inline = false},
-            {name = label(EMOJI.backpack, "Backpack Size"), value = box(formatBackpackSize()), inline = true}
+            {name = label(EMOJI.mutation, "Mutations"), value = box(formatVariant(info)), inline = false}
         }
     }
     
@@ -480,6 +431,7 @@ local function buildEmbed(info)
         })
     end
     
+    -- Use direct thumbnail link from JSON (no fetching needed!)
     if info.thumbnail and info.thumbnail ~= "" then
         if CFG.USE_LARGE_IMAGE then
             embed.image = {url = info.thumbnail}
@@ -491,37 +443,34 @@ local function buildEmbed(info)
     return embed
 end
 
-
-
-
+-- ===========================
+-- QUEUE PROCESSOR
+-- ===========================
 local function processQueue()
     while state.running do
         task.wait(CFG.QUEUE_PROCESS_INTERVAL)
         
-        local shouldProcess = #state.sendQueue > 0
+        if #state.sendQueue == 0 then continue end
         
-        if shouldProcess then
-            local item = table.remove(state.sendQueue, 1)
-            
-            if item then
-                local success, err = sendWebhook({
-                    username = "Nemesis Notifier",
-                    embeds = {item.embed}
-                })
-                
-                if not success then
-                    item.retries = (item.retries or 0) + 1
-                    if item.retries < CFG.RETRY_ATTEMPTS then
-                        logger:info("Webhook failed, retry " .. item.retries .. ": " .. err)
-                        table.insert(state.sendQueue, item)
-                        task.wait(CFG.RETRY_DELAY)
-                    else
-                        logger:info("Webhook failed after " .. item.retries .. " retries: " .. err)
-                    end
-                else
-                    logger:info("Webhook sent: " .. item.fishName)
-                end
+        local item = table.remove(state.sendQueue, 1)
+        if not item then continue end
+        
+        local success, err = sendWebhook({
+            username = "Nemesis Notifier",
+            embeds = {item.embed}
+        })
+        
+        if not success then
+            item.retries = (item.retries or 0) + 1
+            if item.retries < CFG.RETRY_ATTEMPTS then
+                logger:info("Webhook failed, retry " .. item.retries .. ": " .. err)
+                table.insert(state.sendQueue, item)
+                task.wait(CFG.RETRY_DELAY)
+            else
+                logger:info("Webhook failed after " .. item.retries .. " retries: " .. err)
             end
+        else
+            logger:info("Webhook sent: " .. item.fishName)
         end
     end
 end
@@ -547,9 +496,9 @@ local function queueFish(info)
     logger:info("Queued fish: " .. (info.name or "Unknown"))
 end
 
-
-
-
+-- ===========================
+-- EVENT HANDLER
+-- ===========================
 local function extractFishInfo(args)
     local info = {}
     
@@ -575,15 +524,15 @@ local function extractFishInfo(args)
         end
     end
     
+    -- Instant lookup dari JSON cache (sudah termasuk thumbnail!)
     if info.id then
         local cached = state.fishCache[toIdStr(info.id)]
         if cached then
             info.name = info.name or cached.name
             info.tier = info.tier or cached.tier
             info.icon = info.icon or cached.icon
-            info.thumbnail = info.thumbnail or cached.thumbnail
+            info.thumbnail = info.thumbnail or cached.thumbnail  -- Direct from JSON
             info.chance = info.chance or cached.chance
-            info.sellPrice = cached.sellPrice
             info.description = info.description or cached.description
         end
     end
@@ -602,9 +551,9 @@ local function onFishObtained(...)
     end
 end
 
-
-
-
+-- ===========================
+-- CONNECTION
+-- ===========================
 local function connectEvents()
     local function tryConnect(obj)
         if obj:IsA("RemoteEvent") and obj.Name == CFG.TARGET_EVENT then
@@ -616,12 +565,14 @@ local function connectEvents()
         return false
     end
     
+    -- Check existing
     for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
         if tryConnect(obj) then 
             return
         end
     end
     
+    -- Wait for descendant
     local addConn = ReplicatedStorage.DescendantAdded:Connect(function(obj)
         task.wait(0.1)
         tryConnect(obj)
@@ -631,32 +582,27 @@ local function connectEvents()
     logger:info("Waiting for " .. CFG.TARGET_EVENT .. "...")
 end
 
-
-
-
+-- ===========================
+-- PUBLIC API
+-- ===========================
 function FishWebhookV3:Init()
-    logger:info("=== INITIALIZING FISH WEBHOOK V3 (JSON DATA + BACKPACK) ===")
+    logger:info("=== INITIALIZING FISH WEBHOOK V3 (JSON DATA) ===")
     
     local startTime = now()
     
+    -- Load tier data from game
     state.tierCache = loadTiers()
     logger:info("Tiers loaded from game")
     
+    -- Load fish data from JSON (includes thumbnails!)
     state.fishCache = loadFishFromJSON()
     logger:info("Fish data loaded from JSON")
-    
-    if FishWatcher then
-        state.fishWatcher = FishWatcher.getShared()
-        logger:info("FishWatcher connected")
-    else
-        logger:info("FishWatcher not found - backpack size will default to 0")
-    end
     
     local elapsed = now() - startTime
     logger:info("=== INIT COMPLETE in " .. string.format("%.2f", elapsed) .. " seconds ===")
     logger:info("Fish cache: " .. (next(state.fishCache) and "OK" or "EMPTY"))
     logger:info("Tier cache: " .. (next(state.tierCache) and "OK" or "EMPTY"))
-    logger:info("FishWatcher: " .. (state.fishWatcher and "OK" or "NOT FOUND"))
+    logger:info("No thumbnail fetching needed - using direct links from JSON!")
     
     return next(state.fishCache) ~= nil
 end
@@ -722,7 +668,7 @@ function FishWebhookV3:TestWebhook(msg)
     if state.webhookUrl == "" then return false end
     return sendWebhook({
         username = "Nemesis Notifier",
-        content = msg or "🟠 Test from Fish-It"
+        content = msg or "🟠 Test from Fish-It v3 (JSON)"
     })
 end
 
@@ -732,8 +678,6 @@ function FishWebhookV3:GetStatus()
         fishCount = fishCount + 1
     end
     
-    local current, max = getBackpackSize()
-    
     return {
         running = state.running,
         webhookUrl = state.webhookUrl ~= "" and (state.webhookUrl:sub(1, 50) .. "...") or "Not set",
@@ -742,9 +686,7 @@ function FishWebhookV3:GetStatus()
         connectionsCount = #state.connections,
         fishCacheSize = fishCount,
         tierCacheSize = next(state.tierCache) and 1 or 0,
-        dataSource = "JSON",
-        backpackSize = string.format("%d/%d", current, max),
-        fishWatcherConnected = state.fishWatcher ~= nil
+        dataSource = "JSON"
     }
 end
 
@@ -763,18 +705,17 @@ function FishWebhookV3:Cleanup()
     state.tierCache = {}
     state.sendQueue = {}
     state.dedupCache = {}
-    state.fishWatcher = nil
     
     logger:info("Cleanup complete")
 end
 
+-- Debug
 function FishWebhookV3:EnableDebug() CFG.DEBUG = true end
 function FishWebhookV3:DisableDebug() CFG.DEBUG = false end
 function FishWebhookV3:GetFishCache() return state.fishCache end
 function FishWebhookV3:GetTierCache() return state.tierCache end
 function FishWebhookV3:GetSelectedTiers() return state.selectedTiers end
 function FishWebhookV3:GetQueueSize() return #state.sendQueue end
-function FishWebhookV3:GetBackpackSize() return getBackpackSize() end
 
 function FishWebhookV3:SimulateFishCatch(data)
     data = data or {
